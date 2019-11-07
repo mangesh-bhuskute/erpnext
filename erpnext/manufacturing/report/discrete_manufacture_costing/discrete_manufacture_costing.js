@@ -42,6 +42,11 @@ frappe.query_reports["Discrete Manufacture Costing"] = {
 			get_data: function(txt) {
 				return frappe.db.get_link_options('Item Group', txt);
 			}
-        },
+		},
+		{
+			"fieldname": "printItemGroup",
+			"label": __("Print Calculated Item Group"),
+            "fieldtype": "Check"
+        }
 	]
 }

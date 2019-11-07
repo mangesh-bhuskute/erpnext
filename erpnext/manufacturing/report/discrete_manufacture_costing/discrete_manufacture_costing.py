@@ -31,6 +31,7 @@ def get_data(filters):
     item_group = filters.itemGroup
     filterItemGroup = tuple(item_group)
     stock_entry_type = "Manufacture"
+    itemGroupSummary = []
     # fetch report columns value
     if(filterItemGroup):
         response = frappe.db.sql(""" SELECT SOD.sales_order, WO.name, WO.production_plan, 
@@ -101,11 +102,47 @@ def get_data(filters):
     # temporary quick solution
     response.append(['', '', '', '<b>Total</b>', '', '', totalQty, '', totalValuation, totalAmount])
     response.append(['', '', '', '<b>Manufacturing Cost per UOM</b>', '', '', '', '', '', totalCostPerUOM])
+
+    # print item group table if checkbox clicked
+    if (filters.printItemGroup):
+        if(filterItemGroup):
+            itemGroupSummary = frappe.db.sql(""" SELECT SED.item_group, SUM(ROUND(SED.qty, 3)) as qty,
+                    (SED.qty * SED.basic_rate) as amount
+                FROM `tabWork Order` as WO
+                    JOIN `tabStock Entry` as SE
+                        ON SE.work_order = WO.name
+                    JOIN `tabStock Entry Detail` as SED
+                        ON SED.parent = SE.name
+                    JOIN `tabProduction Plan` as PP
+                        ON PP.name = WO.production_plan
+                    JOIN `tabProduction Plan Sales Order` as SOD
+                        ON SOD.parent = WO.production_plan
+                WHERE WO.production_plan = %s AND SOD.sales_order = %s AND SE.stock_entry_type = %s
+                    AND SED.item_group IN %s
+                GROUP BY SED.item_group """, 
+            (production_plan, sale_order, stock_entry_type, filterItemGroup), as_dict=1)
+        else:
+            itemGroupSummary = frappe.db.sql(""" SELECT SED.item_group, SUM(ROUND(SED.qty, 3)) as qty,
+                    (SED.qty * SED.basic_rate) as amount
+                FROM `tabWork Order` as WO
+                    JOIN `tabStock Entry` as SE
+                        ON SE.work_order = WO.name
+                    JOIN `tabStock Entry Detail` as SED
+                        ON SED.parent = SE.name
+                    JOIN `tabProduction Plan` as PP
+                        ON PP.name = WO.production_plan
+                    JOIN `tabProduction Plan Sales Order` as SOD
+                        ON SOD.parent = WO.production_plan
+                WHERE WO.production_plan = %s AND SOD.sales_order = %s AND SE.stock_entry_type = %s
+                GROUP BY SED.item_group """, 
+            (production_plan, sale_order, stock_entry_type), as_dict=1)
     
     # summary report
     QuontityProduced = summary[0][0]
     Item = summary[0][1]
-    data_to_be_printed = [QuontityProduced, Item, totalCostPerUOM]
+    data_to_be_printed = {}
+    data_to_be_printed["summary"] = [QuontityProduced, Item, totalCostPerUOM]
+    data_to_be_printed["itemGroupSummary"] = itemGroupSummary
     return response, data_to_be_printed
 
 
